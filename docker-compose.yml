@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+
+  book-service:
+    build:
+      context: ./backend/book-service
+    ports:
+      - "8002:8000"
+    volumes:
+      - db-data:/app/data
+    environment:
+      - JWT_SECRET=dev-secret-change-in-production
+      - DB_PATH=/app/data/bookstore.db
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./backend/user-service
+    ports:
+      - "8003:8000"
+    volumes:
+      - db-data:/app/data
+    environment:
+      - JWT_SECRET=dev-secret-change-in-production
+      - DB_PATH=/app/data/bookstore.db
+    restart: unless-stopped
+
+  cart-service:
+    build:
+      context: ./backend/cart-service
+    ports:
+      - "8004:8000"
+    volumes:
+      - db-data:/app/data
+    environment:
+      - JWT_SECRET=dev-secret-change-in-production
+      - DB_PATH=/app/data/bookstore.db
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ./backend/order-service
+    ports:
+      - "8005:8000"
+    volumes:
+      - db-data:/app/data
+    environment:
+      - JWT_SECRET=dev-secret-change-in-production
+      - DB_PATH=/app/data/bookstore.db
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./backend/payment-service
+    ports:
+      - "8006:8000"
+    volumes:
+      - db-data:/app/data
+    environment:
+      - JWT_SECRET=dev-secret-change-in-production
+      - DB_PATH=/app/data/bookstore.db
+    restart: unless-stopped
+
+volumes:
+  db-data:
