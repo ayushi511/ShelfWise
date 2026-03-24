@@ -2,7 +2,7 @@
 
 ## 🚀 Overview
 
-Handy Bookstore is a cloud-based e-commerce web application designed for buying books online.
+ShelfWise Bookstore is a cloud-based e-commerce web application designed for buying books online.
 The project follows a **microservices architecture**, where each service handles a specific functionality such as user management, books, cart, and payments.
 
 This project demonstrates **backend development, API design, containerization and system design concepts**.
