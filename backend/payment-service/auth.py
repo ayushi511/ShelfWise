@@ -1,40 +1,62 @@
-import os
-from datetime import datetime, timedelta, timezone
+# shared/auth.py
+# ─────────────────────────────────────────────────────────────
+#  Copy this file into every service's folder.
+#  Usage:  from auth import get_current_user, CurrentUser
+# ─────────────────────────────────────────────────────────────
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-
-SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
-ALGORITHM  = "HS256"
-EXPIRE_HOURS = 24
+import os, httpx
+from functools import lru_cache
 
 bearer = HTTPBearer()
 
-def create_access_token(user_id: int, email: str, name: str) -> str:
-    payload = {
-        "sub":   str(user_id),
-        "email": email,
-        "name":  name,
-        "exp":   datetime.now(timezone.utc) + timedelta(hours=EXPIRE_HOURS),
-        "iat":   datetime.now(timezone.utc),
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+
+# ── Fetch Supabase public JWKS (cached) ──────────────────────
+@lru_cache(maxsize=1)
+def _get_jwks() -> dict:
+    url = f"{SUPABASE_URL}/auth/v1/jwks"
+    r = httpx.get(url, headers={"apikey": SUPABASE_ANON_KEY}, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def _decode_token(token: str) -> dict:
+    """Decode & verify a Supabase-issued JWT."""
+    try:
+        jwks = _get_jwks()
+        # Supabase JWKS may have multiple keys; try each
+        for key_data in jwks.get("keys", [jwks]):
+            try:
+                payload = jwt.decode(
+                    token,
+                    key_data,
+                    algorithms=["RS256", "HS256"],
+                    audience="authenticated",
+                    options={"verify_aud": False},   # Supabase doesn't always set aud
+                )
+                return payload
+            except JWTError:
+                continue
+        raise JWTError("No matching key")
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid or expired token: {e}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 class CurrentUser:
+    """Parsed user info from the JWT."""
     def __init__(self, payload: dict):
-        self.id:    int = int(payload["sub"])
+        self.id: str   = payload.get("sub", "")
         self.email: str = payload.get("email", "")
-        self.name:  str = payload.get("name", "")
+        self.role: str  = payload.get("role", "authenticated")
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer),
 ) -> CurrentUser:
-    try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        return CurrentUser(payload)
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token. Please log in again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    """FastAPI dependency — inject into any route that needs auth."""
+    payload = _decode_token(credentials.credentials)
+    return CurrentUser(payload)

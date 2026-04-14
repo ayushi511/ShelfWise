@@ -1,4 +1,4 @@
-﻿import sys, os
+import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from fastapi import FastAPI, HTTPException, Depends
@@ -8,7 +8,8 @@ import bcrypt
 from database import get_conn, init_db
 from auth import create_access_token, get_current_user, CurrentUser
 
-app = FastAPI(title="User Service", version="1.0.0")
+app = FastAPI(title="👤 User Service", version="1.0.0")
+
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 @app.on_event("startup")
@@ -39,11 +40,11 @@ class AddressCreate(BaseModel):
     pincode: str
     is_default: bool = False
 
-@app.get("/")
+@app.get("/", tags=["Health"])
 def health():
-    return {"service": "user-service", "status": "running"}
+    return {"service": "user-service", "status": "running ✅"}
 
-@app.post("/auth/signup", status_code=201)
+@app.post("/auth/signup", status_code=201, tags=["Auth"])
 def signup(body: SignUpRequest):
     conn = get_conn()
     existing = conn.execute("SELECT id FROM users WHERE email=?", (body.email.lower(),)).fetchone()
@@ -58,10 +59,10 @@ def signup(body: SignUpRequest):
     user_id = c.lastrowid
     conn.close()
     token = create_access_token(user_id, body.email.lower(), body.name.strip())
-    return {"message": "Account created", "access_token": token, "token_type": "bearer",
+    return {"message": "Account created ✅", "access_token": token, "token_type": "bearer",
             "user": {"id": user_id, "name": body.name.strip(), "email": body.email.lower()}}
 
-@app.post("/auth/signin")
+@app.post("/auth/signin", tags=["Auth"])
 def signin(body: SignInRequest):
     conn = get_conn()
     user = conn.execute("SELECT * FROM users WHERE email=?", (body.email.lower(),)).fetchone()
@@ -72,7 +73,7 @@ def signin(body: SignInRequest):
     return {"access_token": token, "token_type": "bearer",
             "user": {"id": user["id"], "name": user["name"], "email": user["email"]}}
 
-@app.get("/profile")
+@app.get("/profile", tags=["Profile"])
 def get_profile(current_user: CurrentUser = Depends(get_current_user)):
     conn = get_conn()
     row = conn.execute("SELECT id,name,email,phone,created_at FROM users WHERE id=?", (current_user.id,)).fetchone()
@@ -81,7 +82,7 @@ def get_profile(current_user: CurrentUser = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="User not found.")
     return dict(row)
 
-@app.patch("/profile")
+@app.patch("/profile", tags=["Profile"])
 def update_profile(body: ProfileUpdate, current_user: CurrentUser = Depends(get_current_user)):
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     if not updates:
@@ -93,16 +94,16 @@ def update_profile(body: ProfileUpdate, current_user: CurrentUser = Depends(get_
     conn.commit()
     row = conn.execute("SELECT id,name,email,phone FROM users WHERE id=?", (current_user.id,)).fetchone()
     conn.close()
-    return {"message": "Profile updated", "profile": dict(row)}
+    return {"message": "Profile updated ✅", "profile": dict(row)}
 
-@app.get("/addresses")
+@app.get("/addresses", tags=["Addresses"])
 def list_addresses(current_user: CurrentUser = Depends(get_current_user)):
     conn = get_conn()
     rows = conn.execute("SELECT * FROM addresses WHERE user_id=? ORDER BY is_default DESC", (current_user.id,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
-@app.post("/addresses", status_code=201)
+@app.post("/addresses", status_code=201, tags=["Addresses"])
 def add_address(body: AddressCreate, current_user: CurrentUser = Depends(get_current_user)):
     conn = get_conn()
     if body.is_default:
@@ -113,9 +114,9 @@ def add_address(body: AddressCreate, current_user: CurrentUser = Depends(get_cur
     conn.commit()
     row = conn.execute("SELECT * FROM addresses WHERE id=?", (c.lastrowid,)).fetchone()
     conn.close()
-    return {"message": "Address saved", "address": dict(row)}
+    return {"message": "Address saved ✅", "address": dict(row)}
 
-@app.delete("/addresses/{address_id}", status_code=204)
+@app.delete("/addresses/{address_id}", status_code=204, tags=["Addresses"])
 def delete_address(address_id: int, current_user: CurrentUser = Depends(get_current_user)):
     conn = get_conn()
     conn.execute("DELETE FROM addresses WHERE id=? AND user_id=?", (address_id, current_user.id))

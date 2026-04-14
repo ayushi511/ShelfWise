@@ -4,7 +4,8 @@ Creates / connects to bookstore.db (SQLite) in the project root.
 """
 import sqlite3, os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "bookstore.db")
+DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "..", "bookstore.db"))
+os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
 
 def get_conn():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
